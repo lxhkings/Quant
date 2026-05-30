@@ -1,5 +1,6 @@
 """Quant CLI。`quant factor test <name>` 跑单因子端到端体检。"""
 
+import pandas as pd
 import typer
 
 from quant.data.holdout import apply_holdout
@@ -65,7 +66,7 @@ def factor_test(
         quantile_means=q_means,
         long_short_annual=spread.mean() * (_TRADING_DAYS_YEAR / horizon),
         monotonic=_is_monotonic(q_means),
-        avg_turnover=float(avg_turnover) if avg_turnover == avg_turnover else 0.0,
+        avg_turnover=float(avg_turnover) if pd.notna(avg_turnover) else 0.0,
         holdout_consumed=(mode == "holdout"),
     )
     typer.echo(report.to_markdown())

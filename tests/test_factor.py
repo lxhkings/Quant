@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from quant.factor.library.ma_bias import MABias
 from quant.factor.library.momentum import Momentum
 
 
@@ -27,9 +28,6 @@ def test_momentum_value():
     f = Momentum(lookback=20, skip=5).compute(close)
     # 动量 = close[t-skip]/close[t-skip-lookback]-1；最后的跳涨在 skip 内不计入
     assert np.isclose(f["AAA"].iloc[-1], 0.0)
-
-
-from quant.factor.library.ma_bias import MABias
 
 
 def test_ma_bias_name():

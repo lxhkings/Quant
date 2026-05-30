@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from quant.config import data_lake_root
 
 

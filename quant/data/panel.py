@@ -3,7 +3,6 @@
 from pathlib import Path
 
 import pandas as pd
-import pyarrow.dataset as ds
 
 from quant.config import data_lake_root
 
@@ -21,9 +20,22 @@ def load_price_matrix(
     """
     root = root or data_lake_root()
     path = Path(root) / market / "daily"
-    dataset = ds.dataset(str(path), format="parquet", partitioning="hive")
-    table = dataset.to_table(columns=["instrument_id", "date", field])
-    df = table.to_pandas()
+
+    # 逐分区读取再合并，避免 pyarrow schema 合并冲突（string/large_string/dict）
+    frames = []
+    for part_dir in sorted(path.iterdir()):
+        if not part_dir.is_dir() or not part_dir.name.startswith("instrument_id="):
+            continue
+        inst_id = part_dir.name.split("=", 1)[1]
+        for pq_file in part_dir.glob("*.parquet"):
+            df = pd.read_parquet(pq_file, columns=["date", field])
+            df["instrument_id"] = inst_id
+            frames.append(df)
+
+    if not frames:
+        raise FileNotFoundError(f"No parquet files found under {path}")
+
+    df = pd.concat(frames, ignore_index=True)
     df[field] = df[field].astype("float64")
     wide = df.pivot(index="date", columns="instrument_id", values=field)
     wide.index = pd.to_datetime(wide.index)

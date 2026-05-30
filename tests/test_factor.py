@@ -27,3 +27,26 @@ def test_momentum_value():
     f = Momentum(lookback=20, skip=5).compute(close)
     # 动量 = close[t-skip]/close[t-skip-lookback]-1；最后的跳涨在 skip 内不计入
     assert np.isclose(f["AAA"].iloc[-1], 0.0)
+
+
+from quant.factor.library.ma_bias import MABias
+
+
+def test_ma_bias_name():
+    assert MABias().name == "ma_bias"
+
+
+def test_ma_bias_zero_when_flat():
+    idx = pd.date_range("2020-01-01", periods=40, freq="D")
+    close = pd.DataFrame({"AAA": [100.0] * 40}, index=idx)
+    f = MABias(window=20).compute(close)
+    # 横盘时价格=均线，乖离=0
+    assert np.isclose(f["AAA"].iloc[-1], 0.0)
+
+
+def test_ma_bias_positive_when_above_ma():
+    idx = pd.date_range("2020-01-01", periods=40, freq="D")
+    close = pd.DataFrame({"AAA": [100.0 * (1.01 ** i) for i in range(40)]}, index=idx)
+    f = MABias(window=20).compute(close)
+    # 持续上涨，价格在均线上方，乖离为正
+    assert f["AAA"].iloc[-1] > 0

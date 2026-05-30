@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# env / secrets
+.env
+
+# outputs / caches
+quant_out/
+*.parquet
+data_lake/
+
+# macOS
+.DS_Store

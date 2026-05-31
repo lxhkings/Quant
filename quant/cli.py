@@ -16,10 +16,11 @@ from quant.combine.synth import (
 from quant.data.holdout import apply_holdout
 from quant.data.panel import load_price_matrix
 from quant.data.returns import forward_returns
+from quant.data.sectors import load_sectors
 from quant.eval.ic import ic_series, ic_summary
 from quant.eval.quantiles import long_short_spread, quantile_returns, turnover
-from quant.factor.library.ma_bias import MABias
-from quant.factor.library.momentum import Momentum
+from quant.factor.registry import compute_factor, factor_names, needs_volume
+from quant.process.neutralize import sector_neutralize
 from quant.process.pipeline import Pipeline, winsorize, zscore
 from quant.report.runner import run_backtest_report
 from quant.report.scorecard import FactorReport
@@ -29,19 +30,34 @@ app = typer.Typer(help="Quant 因子研究")
 factor_app = typer.Typer(help="因子检验")
 app.add_typer(factor_app, name="factor")
 
-_FACTORS = {"momentum": Momentum, "ma_bias": MABias}
+_FACTORS = set(factor_names())
 _TRADING_DAYS_YEAR = 252
 
 
-def _make_factor(name: str, close, lookback: int, skip: int, window: int):
-    """按名构因子矩阵，返回 (因子, 参数字典)。"""
+def _factor_params(name: str, lookback: int, skip: int, window: int) -> dict:
+    """按因子名挑出其构造参数。"""
     if name == "momentum":
-        return Momentum(lookback=lookback, skip=skip).compute(close), {
-            "lookback": lookback, "skip": skip,
-        }
-    if name == "ma_bias":
-        return MABias(window=window).compute(close), {"window": window}
-    raise KeyError(name)
+        return {"lookback": lookback, "skip": skip}
+    return {"window": window}  # ma_bias and other single-window factors
+
+
+def _make_factor(
+    name: str,
+    close,
+    lookback: int,
+    skip: int,
+    window: int,
+    *,
+    volume=None,
+    neutralize: bool = False,
+    market: str = "us",
+):
+    """Registry dispatch to build factor; auto-pass volume if needed; optional sector neutralize."""
+    params = _factor_params(name, lookback, skip, window)
+    factor = compute_factor(name, close, volume=volume, **params)
+    if neutralize:
+        factor = sector_neutralize(factor, load_sectors(market=market))
+    return factor, params
 
 
 @factor_app.command("test")
@@ -54,6 +70,7 @@ def factor_test(
     quantiles: int = typer.Option(5, help="分位档数"),
     mode: str = typer.Option("research", help="research / holdout / full"),
     holdout_years: int = typer.Option(2, help="holdout 锁定年数"),
+    neutralize: bool = typer.Option(False, "--neutralize", help="行业中性化"),
 ) -> None:
     if name not in _FACTORS:
         typer.echo(f"未知因子：{name}，可选 {list(_FACTORS)}", err=True)
@@ -62,12 +79,15 @@ def factor_test(
     close = load_price_matrix(field="close", market="us")
     close = apply_holdout(close, mode=mode, holdout_years=holdout_years)
 
-    if name == "momentum":
-        factor = Momentum(lookback=lookback, skip=skip).compute(close)
-        params = {"lookback": lookback, "skip": skip}
-    else:
-        factor = MABias(window=window).compute(close)
-        params = {"window": window}
+    volume = None
+    if needs_volume(name):
+        volume = load_price_matrix(field="volume", market="us")
+        volume = apply_holdout(volume, mode=mode, holdout_years=holdout_years)
+
+    factor, params = _make_factor(
+        name, close, lookback, skip, window,
+        volume=volume, neutralize=neutralize,
+    )
 
     factor = Pipeline([winsorize, zscore])(factor)
     fwd = forward_returns(close, horizon=horizon)
@@ -115,6 +135,7 @@ def backtest_cmd(
     holdout_years: int = typer.Option(2, help="holdout 锁定年数"),
     ledger_path: str = typer.Option("quant_out/ledger.jsonl", help="试验台账路径"),
     state_path: str = typer.Option("quant_out/holdout_state.json", help="holdout 状态文件"),
+    neutralize: bool = typer.Option(False, "--neutralize", help="行业中性化"),
 ) -> None:
     if name not in _FACTORS:
         typer.echo(f"未知因子：{name}，可选 {list(_FACTORS)}", err=True)
@@ -122,7 +143,16 @@ def backtest_cmd(
 
     close = load_price_matrix(field="close", market="us")
     close = apply_holdout(close, mode=mode, holdout_years=holdout_years)
-    factor, params = _make_factor(name, close, lookback, skip, window)
+
+    volume = None
+    if needs_volume(name):
+        volume = load_price_matrix(field="volume", market="us")
+        volume = apply_holdout(volume, mode=mode, holdout_years=holdout_years)
+
+    factor, params = _make_factor(
+        name, close, lookback, skip, window,
+        volume=volume, neutralize=neutralize,
+    )
     factor = Pipeline([winsorize, zscore])(factor)
 
     report = run_backtest_report(
@@ -211,6 +241,7 @@ def holdout_cmd(
     yes: bool = typer.Option(False, "--yes", help="跳过确认弹窗"),
     ledger_path: str = typer.Option("quant_out/ledger.jsonl", help="试验台账路径"),
     state_path: str = typer.Option("quant_out/holdout_state.json", help="holdout 状态文件"),
+    neutralize: bool = typer.Option(False, "--neutralize", help="行业中性化"),
 ) -> None:
     if name not in _FACTORS:
         typer.echo(f"未知因子：{name}，可选 {list(_FACTORS)}", err=True)
@@ -235,7 +266,15 @@ def holdout_cmd(
         typer.echo("holdout 窗口为空（数据时长不足锁定年数）", err=True)
         raise typer.Exit(code=1)
 
-    factor, params = _make_factor(name, close, lookback, skip, window)
+    volume = None
+    if needs_volume(name):
+        volume = load_price_matrix(field="volume", market="us")
+        volume = apply_holdout(volume, mode="holdout", holdout_years=holdout_years)
+
+    factor, params = _make_factor(
+        name, close, lookback, skip, window,
+        volume=volume, neutralize=neutralize,
+    )
     factor = Pipeline([winsorize, zscore])(factor)
 
     report = run_backtest_report(

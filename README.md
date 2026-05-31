@@ -19,12 +19,9 @@ uv run quant factor test-all
 
 # 多因子合成回测
 uv run quant combine momentum ma_bias --weighting ic
-
-# Web UI（后台启动，输出静默）
-uv run streamlit run quant/web/app.py --server.headless true > /dev/null 2>&1 &
-# 停止
-kill $!
 ```
+
+> Web UI 详见下方「Web UI」章节。
 
 ## 模块结构
 
@@ -60,8 +57,9 @@ uv run streamlit run quant/web/app.py --server.headless true
 
 # 后台启动（终端可继续用）
 uv run streamlit run quant/web/app.py --server.headless true > /tmp/st.log 2>&1 &
-# 停止
-kill $!
+
+# 停止（一键全杀所有 streamlit 实例）
+pkill -f "streamlit run quant/web/app"
 ```
 
 多页漏斗流程，像筛子一样：想法多 → 层层筛 → 活下来的少数 → 组合产出。

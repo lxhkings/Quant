@@ -20,8 +20,9 @@ uv run quant factor test-all
 # 多因子合成回测
 uv run quant combine momentum ma_bias --weighting ic
 
-# Web UI
-uv run streamlit run quant/web/app.py
+# Web UI（后台启动）
+uv run streamlit run quant/web/app.py --server.headless true &
+kill %1  # 停止
 ```
 
 ## 模块结构
@@ -53,7 +54,11 @@ uv run streamlit run quant/web/app.py
 ## Web UI
 
 ```bash
-uv run streamlit run quant/web/app.py
+# 后台启动
+uv run streamlit run quant/web/app.py --server.headless true &
+
+# 停止
+kill %1
 ```
 
 | 页面 | 功能 |

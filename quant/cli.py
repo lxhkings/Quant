@@ -55,7 +55,7 @@ def _backtest_report(
     res = run_backtest(factor, close, n=quantiles, side=side, freq=freq, cost_bps=cost_bps)
     metrics = compute_metrics(res.nav, res.returns)
     avg_turnover = float(res.turnover[res.turnover > 0].mean())
-    if avg_turnover != avg_turnover:  # NaN（从未建仓）
+    if pd.isna(avg_turnover):  # NaN（从未建仓）
         avg_turnover = 0.0
 
     rets = res.returns.dropna()
@@ -189,6 +189,9 @@ def combine_cmd(
     mode: str = typer.Option("research", help="research / holdout / full"),
     holdout_years: int = typer.Option(2, help="holdout 锁定年数"),
 ) -> None:
+    if not names:
+        typer.echo("至少指定一个因子", err=True)
+        raise typer.Exit(code=1)
     for nm in names:
         if nm not in _FACTORS:
             typer.echo(f"未知因子：{nm}，可选 {list(_FACTORS)}", err=True)
@@ -229,6 +232,7 @@ def combine_cmd(
         f"- 年化收益：{metrics.annual_return:.2%}",
         f"- Sharpe：{metrics.sharpe:.2f}",
         f"- 最大回撤：{metrics.max_drawdown:.2%}",
+        f"- Calmar：{metrics.calmar:.2f}",
         f"- 月胜率：{metrics.monthly_win_rate:.2%}",
     ]
     typer.echo("\n".join(lines))

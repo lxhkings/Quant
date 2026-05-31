@@ -13,6 +13,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from quant.data.returns import simple_returns
+
 _PERIOD_CODE = {"M": "M", "W": "W"}
 
 
@@ -65,7 +67,7 @@ def backtest(
     cost_bps: float = 10.0,
 ) -> BacktestResult:
     """按调仓频率分位选股、等权持有、扣单边成本，返回净值序列。"""
-    daily_ret = close.pct_change()
+    daily_ret = simple_returns(close)
     reb = rebalance_dates(close.index, freq)
 
     weights = pd.DataFrame(np.nan, index=close.index, columns=close.columns)

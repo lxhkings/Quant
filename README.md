@@ -39,7 +39,7 @@ kill $!
 | `quant/report/` | 因子报告卡（通俗结论 + 红绿灯）、回测报告卡、批量排行榜 |
 | `quant/select/` | 多因子选股器（最新截面打分 → 0-100 → 买入/备选池） |
 | `quant/validate/` | DSR 抗过拟合、holdout 闸门、试验台账 |
-| `quant/web/` | Streamlit Web UI（6 页） |
+| `quant/web/` | Streamlit Web UI（多页漏斗流程：首页总览 + 6 个步骤页 + 共用组件） |
 | `quant/cli.py` | Typer CLI 入口 |
 
 ## CLI 命令
@@ -55,21 +55,28 @@ kill $!
 ## Web UI
 
 ```bash
-# 后台启动（终端可继续用）
-uv run streamlit run quant/web/app.py --server.headless true > /dev/null 2>&1 &
+# 启动（streamlit 自动发现 pages/ 目录生成多页导航）
+uv run streamlit run quant/web/app.py --server.headless true
 
+# 后台启动（终端可继续用）
+uv run streamlit run quant/web/app.py --server.headless true > /tmp/st.log 2>&1 &
 # 停止
 kill $!
 ```
 
-| 页面 | 功能 |
-|---|---|
-| 因子工坊 | 单因子体检，参数可调 |
-| 多因子合成 | 选因子 + 加权法 → 合成回测 |
-| holdout 闸门 | 定稿因子最终验证（仅一次） |
-| 历史 | 试验台账记录 |
-| 选股器 | 多因子加权打分选股，权重滑块 + 条形图 |
-| 批量排行榜 | 一键体检全部因子，IC-IR 排序表 |
+多页漏斗流程，像筛子一样：想法多 → 层层筛 → 活下来的少数 → 组合产出。
+
+| 页面 | 步骤 | 功能 |
+|---|---|---|
+| 🏠 总览 | — | 首页，漏斗图 + 6 张入口卡 |
+| ① 因子扫描 | 粗筛 | 一键体检全库因子，按 ICIR 排序 |
+| ② 因子工坊 | 精测 | 单因子深度体检，参数随因子显隐，hover 出术语白话 |
+| ③ 多因子合成 | 增强 | 加权合成 + 共线性预警 + 4 个 metric 卡绩效概览 |
+| ④ holdout 闸门 | 终验锁定 | 定稿因子最终验证（仅一次，跑后锁定），红色风险条 |
+| ⑤ 选股器 | 产出 | 多因子加权打分 → 今日买入池，条形图可视化 |
+| 📒 台账 | — | 全程试验记录（工坊、回测、holdout 自动写入） |
+
+每页顶部有「第 N 步 / 5 + 上下步链接 + 这步干啥」引导，参数 hover 显示术语白话解释。
 
 ## 因子扩展
 
@@ -90,6 +97,6 @@ def my_factor(close, *, window=20):
 ## 测试
 
 ```bash
-uv run pytest -q        # 全量（128 用例）
+uv run pytest -q        # 全量（130 用例）
 uv run ruff check .     # lint
 ```

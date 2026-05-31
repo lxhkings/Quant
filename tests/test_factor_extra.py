@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from quant.factor.library.short_reversal import ShortReversal
+from quant.factor.library.volatility import Volatility
 
 
 def test_short_reversal_name():
@@ -21,3 +22,22 @@ def test_short_reversal_zero_when_flat():
     close = pd.DataFrame({"AAA": [100.0] * 30}, index=idx)
     f = ShortReversal(window=21).compute(close)
     assert np.isclose(f["AAA"].iloc[-1], 0.0)
+
+
+def test_volatility_name():
+    assert Volatility().name == "volatility"
+
+
+def test_volatility_zero_when_flat():
+    idx = pd.date_range("2020-01-01", periods=40, freq="D")
+    close = pd.DataFrame({"AAA": [100.0] * 40}, index=idx)
+    f = Volatility(window=21).compute(close)
+    assert np.isclose(f["AAA"].iloc[-1], 0.0)
+
+
+def test_volatility_positive_when_choppy():
+    idx = pd.date_range("2020-01-01", periods=40, freq="D")
+    prices = [100.0 + (5.0 if i % 2 else -5.0) for i in range(40)]
+    close = pd.DataFrame({"AAA": prices}, index=idx)
+    f = Volatility(window=21).compute(close)
+    assert f["AAA"].iloc[-1] > 0

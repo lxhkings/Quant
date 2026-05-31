@@ -1,106 +1,52 @@
-"""Quant 因子研究 Web —— 四页：因子工坊 / 多因子合成 / holdout 闸门 / 历史。
+"""Quant 因子研究 Web —— 首页总览。
 
 启动：uv run streamlit run quant/web/app.py
+streamlit 自动发现同目录 pages/ 下的步骤页并生成 sidebar。
 """
 
-from pathlib import Path
-
-import altair as alt
 import streamlit as st
 
-from quant.web import viewmodel
-
 st.set_page_config(page_title="Quant 因子研究", layout="wide")
-PAGES = ["因子工坊", "多因子合成", "holdout 闸门", "历史", "选股器", "批量排行榜"]
-page = st.sidebar.radio("页面", PAGES)
-mode = st.sidebar.selectbox("数据模式", ["research", "full"], index=0)
 
-if page == "因子工坊":
-    st.header("因子工坊")
-    name = st.selectbox("因子", viewmodel.available_factors())
-    c1, c2, c3 = st.columns(3)
-    lookback = c1.number_input("lookback", 1, 1000, 252)
-    skip = c2.number_input("skip", 0, 250, 21)
-    window = c3.number_input("window", 1, 1000, 200)
-    horizon = c1.number_input("horizon", 1, 120, 21)
-    quantiles = c2.number_input("分位档数", 2, 10, 5)
-    neutralize = c3.checkbox("行业中性化")
-    if st.button("跑检验"):
-        md = viewmodel.workshop(
-            name, lookback=lookback, skip=skip, window=window,
-            horizon=horizon, quantiles=quantiles, mode=mode, neutralize=neutralize,
-        )
-        st.markdown(md)
+st.title("🏠 Quant 因子研究 · 总览")
+st.write(
+    "多因子量化选股研究平台。下面是一条完整研究流水线，像漏斗一样："
+    "想法多 → 层层筛 → 活下来的少数 → 组合产出。"
+)
 
-elif page == "多因子合成":
-    st.header("多因子合成")
-    names = st.multiselect("因子（多选）", viewmodel.available_factors(),
-                           default=["momentum", "ma_bias"])
-    weighting = st.radio("加权法", ["equal", "ic"], horizontal=True)
-    quantiles = st.number_input("分位档数", 2, 10, 5)
-    if st.button("合成回测") and names:
-        out = viewmodel.combine(names, weighting=weighting, quantiles=quantiles, mode=mode)
-        st.subheader("权重")
-        st.json(out["weights"])
-        st.subheader("共线性预警（|相关|>=0.7）")
-        st.write(out["warnings"] or "无")
-        st.subheader("绩效")
-        st.json(out["metrics"])
-        st.line_chart(out["nav"])
+st.markdown(
+    """
+```
+想法多 ┌─────────────────────────────────────────────┐ 信号少
+       │ ①扫描  →  ②工坊  →  ③合成  →  ④闸门  → ⑤选股│
+       │  粗筛     精测      增强      终验锁定   产出 │
+       └─────────────────────────────────────────────┘
+                 📒 台账：全程自动记录
+```
+"""
+)
 
-elif page == "holdout 闸门":
-    st.header("holdout 闸门")
-    st.warning("定稿因子仅可在 holdout 跑一次，跑后锁定。")
-    name = st.selectbox("定稿因子", viewmodel.available_factors())
-    confirm = st.checkbox("我确认这是最终定稿，仅跑一次")
-    if st.button("在 holdout 跑最终验证") and confirm:
-        try:
-            md = viewmodel.holdout_run(name)
-            st.markdown(md)
-            st.success("holdout 已消耗，因子已锁定。")
-        except RuntimeError as e:
-            st.error(str(e))
+st.divider()
 
-elif page == "选股器":
-    st.header("多因子量化选股器")
-    names = st.multiselect("因子", viewmodel.available_factors(), default=["momentum"])
-    weights = {}
-    if names:
-        cols = st.columns(len(names))
-        for i, nm in enumerate(names):
-            weights[nm] = cols[i].slider(f"{nm} 权重", 0, 100, 100 // len(names))
-        st.caption(f"总权重 {sum(weights.values())}（提交时自动归一为 100%）")
-    top_n = st.number_input("买入池数量 top-N", 1, 100, 3)
-    neutralize = st.checkbox("行业中性化")
-    if st.button("选股") and names and sum(weights.values()) > 0:
-        out = viewmodel.selector(names, weights, top_n=int(top_n),
-                                 neutralize=neutralize, mode=mode)
-        st.caption(f"截面日期：{out['as_of']}　归一权重：{out['weights']}")
-        t = out["table"]
-        chart = alt.Chart(t).mark_bar().encode(
-            x=alt.X("score:Q", title="综合得分 (0-100)"),
-            y=alt.Y("instrument_id:N", sort="-x", title=None),
-            color=alt.Color(
-                "zone:N",
-                scale=alt.Scale(domain=["buy", "candidate"], range=["#2e8b2e", "#3b6fe0"]),
-                legend=alt.Legend(title="池"),
-            ),
-            tooltip=["instrument_id", "score", "rank", "sector", "zone"],
-        )
-        st.altair_chart(chart, use_container_width=True)
-        st.dataframe(t)
+_CARDS = [
+    ("pages/1_①_因子扫描.py", "① 因子扫描",
+     "一键体检全库因子，按 ICIR 排序，找出哪些值得深挖。", "开局粗筛", "进入 ①"),
+    ("pages/2_②_因子工坊.py", "② 因子工坊",
+     "单因子深度体检：预测力 / 单调性 / 多空三关红绿灯。", "盯一个因子", "进入 ②"),
+    ("pages/3_③_多因子合成.py", "③ 多因子合成",
+     "几个因子加权合成，查共线性，回测。", "组合增强", "进入 ③"),
+    ("pages/4_④_holdout闸门.py", "④ holdout 闸门",
+     "⚠ 定稿因子最终验证，仅一次，跑后锁定。", "即将上线", "进入 ④"),
+    ("pages/5_⑤_选股器.py", "⑤ 选股器",
+     "多因子加权打分，产出今日买入池。", "要选股清单", "进入 ⑤"),
+    ("pages/6_📒_台账.py", "📒 台账",
+     "看历史每次试验记录。", "回溯", "查看 📒"),
+]
 
-elif page == "批量排行榜":
-    st.header("因子批量排行榜")
-    st.caption("批量扫描写独立 scan 台账，不影响 DSR 主台账。")
-    if st.button("批量体检全部因子"):
-        df = viewmodel.leaderboard(mode=mode)
-        st.dataframe(df)
-
-else:  # 历史
-    st.header("历史试验台账")
-    rows = viewmodel.history(Path("quant_out/ledger.jsonl"))
-    if rows:
-        st.dataframe(rows)
-    else:
-        st.info("暂无记录。先在因子工坊或回测里跑一次。")
+cols = st.columns(2)
+for i, (path, title, what, when, btn) in enumerate(_CARDS):
+    with cols[i % 2].container(border=True):
+        st.subheader(title)
+        st.write(what)
+        st.caption(f"何时用：{when}")
+        st.page_link(path, label=btn)

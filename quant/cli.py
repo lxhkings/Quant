@@ -1,5 +1,7 @@
 """Quant CLI。`quant factor test <name>` 跑单因子端到端体检。"""
 
+from pathlib import Path
+
 import pandas as pd
 import typer
 
@@ -119,6 +121,31 @@ def _is_monotonic(values: list[float]) -> bool:
     """分位平均收益是否单调递增（忽略 NaN）。"""
     clean = [v for v in values if v == v]
     return all(a <= b for a, b in zip(clean, clean[1:]))
+
+
+@factor_app.command("test-all")
+def factor_test_all(
+    lookback: int = typer.Option(252, help="动量回看窗口"),
+    skip: int = typer.Option(21, help="动量跳过窗口"),
+    window: int = typer.Option(200, help="单窗因子窗口"),
+    horizon: int = typer.Option(21, help="前瞻收益天数"),
+    quantiles: int = typer.Option(5, help="分位档数"),
+    mode: str = typer.Option("research", help="research / holdout / full"),
+    holdout_years: int = typer.Option(2, help="holdout 锁定年数"),
+    scan_ledger_path: Path = typer.Option(
+        Path("quant_out/scan_ledger.jsonl"), help="批量扫描台账路径（独立于 DSR 主台账）"
+    ),
+) -> None:
+    """批量体检全部已注册因子，输出按 IC-IR 降序的排行榜。"""
+    from quant.report.leaderboard import scan_factors
+
+    table = scan_factors(
+        lookback=lookback, skip=skip, window=window, horizon=horizon,
+        quantiles=quantiles, mode=mode, holdout_years=holdout_years,
+        scan_ledger_path=scan_ledger_path,
+    )
+    typer.echo("# 因子批量排行榜（按 IC-IR 降序）\n")
+    typer.echo(table.to_string(index=False))
 
 
 @app.command("backtest")

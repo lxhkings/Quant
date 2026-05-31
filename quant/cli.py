@@ -188,8 +188,10 @@ def combine_cmd(
 
     close = load_price_matrix(field="close", market="us")
     close = apply_holdout(close, mode=mode, holdout_years=holdout_years)
+    volume = load_price_matrix(field="volume", market="us")
+    volume = apply_holdout(volume, mode=mode, holdout_years=holdout_years)
 
-    raw = {nm: _make_factor(nm, close, lookback, skip, window)[0] for nm in names}
+    raw = {nm: _make_factor(nm, close, lookback, skip, window, volume=volume)[0] for nm in names}
     zf = zscore_factors(raw)
 
     if weighting == "ic":

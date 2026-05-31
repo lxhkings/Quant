@@ -41,3 +41,36 @@ def test_volatility_positive_when_choppy():
     close = pd.DataFrame({"AAA": prices}, index=idx)
     f = Volatility(window=21).compute(close)
     assert f["AAA"].iloc[-1] > 0
+
+
+import pytest
+
+from quant.factor.library.rel_volume import RelativeVolume
+
+
+def test_rel_volume_name():
+    assert RelativeVolume().name == "rel_volume"
+
+
+def test_rel_volume_zero_when_constant():
+    idx = pd.date_range("2020-01-01", periods=40, freq="D")
+    close = pd.DataFrame({"AAA": [100.0] * 40}, index=idx)
+    vol = pd.DataFrame({"AAA": [1_000_000.0] * 40}, index=idx)
+    f = RelativeVolume(window=21).compute(close, vol)
+    assert np.isclose(f["AAA"].iloc[-1], 0.0)
+
+
+def test_rel_volume_positive_on_spike():
+    idx = pd.date_range("2020-01-01", periods=40, freq="D")
+    close = pd.DataFrame({"AAA": [100.0] * 40}, index=idx)
+    vols = [1_000_000.0] * 39 + [5_000_000.0]
+    vol = pd.DataFrame({"AAA": vols}, index=idx)
+    f = RelativeVolume(window=21).compute(close, vol)
+    assert f["AAA"].iloc[-1] > 0
+
+
+def test_rel_volume_requires_volume():
+    idx = pd.date_range("2020-01-01", periods=5, freq="D")
+    close = pd.DataFrame({"AAA": [100.0] * 5}, index=idx)
+    with pytest.raises(ValueError, match="volume"):
+        RelativeVolume().compute(close, None)

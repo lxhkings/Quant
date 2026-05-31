@@ -23,6 +23,8 @@ def apply_holdout(
     """按 mode 截断宽矩阵的时间轴。"""
     if mode == "full":
         return matrix
+    if holdout_years <= 0:
+        return matrix
     cutoff = research_cutoff(matrix.index, holdout_years)
     if mode == "research":
         return matrix.loc[matrix.index <= cutoff]

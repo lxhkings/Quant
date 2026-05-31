@@ -5,6 +5,7 @@ import typer
 from scipy.stats import kurtosis, skew
 
 from quant.backtest.engine import backtest as run_backtest
+from quant.backtest.metrics import compute_metrics, sharpe
 from quant.combine.synth import (
     combine_score,
     equal_weight,
@@ -13,7 +14,6 @@ from quant.combine.synth import (
     ic_weight,
     zscore_factors,
 )
-from quant.backtest.metrics import compute_metrics, sharpe
 from quant.data.holdout import apply_holdout
 from quant.data.panel import load_price_matrix
 from quant.data.returns import forward_returns
@@ -25,7 +25,7 @@ from quant.process.pipeline import Pipeline, winsorize, zscore
 from quant.report.backtest_card import BacktestReport
 from quant.report.scorecard import FactorReport
 from quant.validate.dsr import deflated_sharpe, expected_max_sharpe
-from quant.validate.gate import is_consumed
+from quant.validate.gate import assert_not_consumed, is_consumed, mark_consumed
 from quant.validate.ledger import Ledger
 
 app = typer.Typer(help="Quant 因子研究")
@@ -232,3 +232,52 @@ def combine_cmd(
         f"- 月胜率：{metrics.monthly_win_rate:.2%}",
     ]
     typer.echo("\n".join(lines))
+
+
+@app.command("holdout")
+def holdout_cmd(
+    name: str = typer.Argument(..., help="定稿因子名"),
+    lookback: int = typer.Option(252, help="动量回看窗口"),
+    skip: int = typer.Option(21, help="动量跳过窗口"),
+    window: int = typer.Option(200, help="均线窗口（ma_bias）"),
+    quantiles: int = typer.Option(5, help="分位档数"),
+    side: str = typer.Option("long", help="long / long_short"),
+    freq: str = typer.Option("M", help="调仓频率 M/W"),
+    cost_bps: float = typer.Option(10.0, help="单边成本 bps"),
+    holdout_years: int = typer.Option(2, help="holdout 锁定年数"),
+    yes: bool = typer.Option(False, "--yes", help="跳过确认弹窗"),
+    ledger_path: str = typer.Option("quant_out/ledger.jsonl", help="试验台账路径"),
+    state_path: str = typer.Option("quant_out/holdout_state.json", help="holdout 状态文件"),
+) -> None:
+    if name not in _FACTORS:
+        typer.echo(f"未知因子：{name}，可选 {list(_FACTORS)}", err=True)
+        raise typer.Exit(code=1)
+
+    # 已消耗 → 拒绝（作弊保护）
+    try:
+        assert_not_consumed(name, state_path)
+    except RuntimeError as e:
+        typer.echo(str(e), err=True)
+        raise typer.Exit(code=1) from e
+
+    if not yes:
+        typer.confirm(
+            f"将在 holdout 上对 {name} 跑最终验证，仅此一次，之后锁定。确认？",
+            abort=True,
+        )
+
+    close = load_price_matrix(field="close", market="us")
+    close = apply_holdout(close, mode="holdout", holdout_years=holdout_years)
+    if close.empty:
+        typer.echo("holdout 窗口为空（数据时长不足锁定年数）", err=True)
+        raise typer.Exit(code=1)
+
+    factor, params = _make_factor(name, close, lookback, skip, window)
+    factor = Pipeline([winsorize, zscore])(factor)
+
+    report = _backtest_report(
+        name, params, factor, close, quantiles, side, freq, cost_bps,
+        ledger_path, state_path, holdout_consumed=True,
+    )
+    mark_consumed(name, state_path)
+    typer.echo(report.to_markdown())

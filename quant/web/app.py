@@ -11,7 +11,7 @@ import streamlit as st
 from quant.web import viewmodel
 
 st.set_page_config(page_title="Quant 因子研究", layout="wide")
-PAGES = ["因子工坊", "多因子合成", "holdout 闸门", "历史", "选股器"]
+PAGES = ["因子工坊", "多因子合成", "holdout 闸门", "历史", "选股器", "批量排行榜"]
 page = st.sidebar.radio("页面", PAGES)
 mode = st.sidebar.selectbox("数据模式", ["research", "full"], index=0)
 
@@ -89,6 +89,13 @@ elif page == "选股器":
         )
         st.altair_chart(chart, use_container_width=True)
         st.dataframe(t)
+
+elif page == "批量排行榜":
+    st.header("因子批量排行榜")
+    st.caption("批量扫描写独立 scan 台账，不影响 DSR 主台账。")
+    if st.button("批量体检全部因子"):
+        df = viewmodel.leaderboard(mode=mode)
+        st.dataframe(df)
 
 else:  # 历史
     st.header("历史试验台账")

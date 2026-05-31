@@ -21,6 +21,7 @@ from quant.eval.quantiles import long_short_spread, quantile_returns, turnover
 from quant.factor.registry import compute_factor, factor_names
 from quant.process.neutralize import sector_neutralize
 from quant.process.pipeline import Pipeline, winsorize, zscore
+from quant.report.leaderboard import scan_factors
 from quant.report.runner import run_backtest_report
 from quant.report.scorecard import FactorReport
 from quant.select.screen import screen
@@ -157,3 +158,17 @@ def selector(
         window=window, neutralize=neutralize, mode=mode, holdout_years=holdout_years,
     )
     return {"as_of": str(res.as_of.date()), "weights": res.weights, "table": res.table}
+
+
+def leaderboard(
+    names: list[str] | None = None,
+    lookback: int = 252, skip: int = 21, window: int = 200, horizon: int = 21,
+    quantiles: int = 5, mode: str = "research", holdout_years: int = 2,
+    scan_ledger_path: Path = Path("quant_out/scan_ledger.jsonl"),
+):
+    """批量排行榜：透传 scan_factors，返回排行榜 DataFrame。"""
+    return scan_factors(
+        names, lookback=lookback, skip=skip, window=window, horizon=horizon,
+        quantiles=quantiles, mode=mode, holdout_years=holdout_years,
+        scan_ledger_path=scan_ledger_path,
+    )

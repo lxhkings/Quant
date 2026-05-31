@@ -15,6 +15,7 @@ data_lake/
 
 # tooling / local
 .codegraph/
+.claude/
 CLAUDE.md
 docs/superpowers/
 

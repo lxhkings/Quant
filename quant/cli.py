@@ -2,10 +2,9 @@
 
 import pandas as pd
 import typer
-from scipy.stats import kurtosis, skew
 
 from quant.backtest.engine import backtest as run_backtest
-from quant.backtest.metrics import compute_metrics, sharpe
+from quant.backtest.metrics import compute_metrics
 from quant.combine.synth import (
     combine_score,
     equal_weight,
@@ -22,11 +21,9 @@ from quant.eval.quantiles import long_short_spread, quantile_returns, turnover
 from quant.factor.library.ma_bias import MABias
 from quant.factor.library.momentum import Momentum
 from quant.process.pipeline import Pipeline, winsorize, zscore
-from quant.report.backtest_card import BacktestReport
+from quant.report.runner import run_backtest_report
 from quant.report.scorecard import FactorReport
-from quant.validate.dsr import deflated_sharpe, expected_max_sharpe
 from quant.validate.gate import assert_not_consumed, is_consumed, mark_consumed
-from quant.validate.ledger import Ledger
 
 app = typer.Typer(help="Quant 因子研究")
 factor_app = typer.Typer(help="因子检验")
@@ -45,45 +42,6 @@ def _make_factor(name: str, close, lookback: int, skip: int, window: int):
     if name == "ma_bias":
         return MABias(window=window).compute(close), {"window": window}
     raise KeyError(name)
-
-
-def _backtest_report(
-    name, params, factor, close, quantiles, side, freq, cost_bps,
-    ledger_path, state_path, holdout_consumed,
-) -> BacktestReport:
-    """跑回测 + 记台账 + 算 DSR，组装报告卡。"""
-    res = run_backtest(factor, close, n=quantiles, side=side, freq=freq, cost_bps=cost_bps)
-    metrics = compute_metrics(res.nav, res.returns)
-    avg_turnover = float(res.turnover[res.turnover > 0].mean())
-    if pd.isna(avg_turnover):  # NaN（从未建仓）
-        avg_turnover = 0.0
-
-    rets = res.returns.dropna()
-    per_period_sr = sharpe(res.returns, periods_per_year=1)
-    sk = float(skew(rets)) if len(rets) > 2 else 0.0
-    ku = float(kurtosis(rets, fisher=False)) if len(rets) > 2 else 3.0
-
-    ledger = Ledger(ledger_path)
-    ledger.record({"factor": name, "params": params, "sharpe": per_period_sr})
-    n_trials = ledger.count()
-    sharpes = ledger.sharpes()
-    var_sr = float(pd.Series(sharpes).var(ddof=1)) if len(sharpes) >= 2 else 0.0
-    sr0 = expected_max_sharpe(var_sr, n_trials)
-    dsr = deflated_sharpe(per_period_sr, sr0, n_obs=len(rets), skew=sk, kurt=ku)
-
-    return BacktestReport(
-        factor_name=name,
-        params=params,
-        annual_return=metrics.annual_return,
-        sharpe=metrics.sharpe,
-        max_drawdown=metrics.max_drawdown,
-        calmar=metrics.calmar,
-        monthly_win_rate=metrics.monthly_win_rate,
-        avg_turnover=avg_turnover,
-        deflated_sharpe=dsr,
-        n_trials=n_trials,
-        holdout_consumed=holdout_consumed,
-    )
 
 
 @factor_app.command("test")
@@ -167,9 +125,10 @@ def backtest_cmd(
     factor, params = _make_factor(name, close, lookback, skip, window)
     factor = Pipeline([winsorize, zscore])(factor)
 
-    report = _backtest_report(
-        name, params, factor, close, quantiles, side, freq, cost_bps,
-        ledger_path, state_path, holdout_consumed=is_consumed(name, state_path),
+    report = run_backtest_report(
+        name, params, factor, close,
+        quantiles=quantiles, side=side, freq=freq, cost_bps=cost_bps,
+        ledger_path=ledger_path, holdout_consumed=is_consumed(name, state_path),
     )
     typer.echo(report.to_markdown())
 
@@ -279,9 +238,10 @@ def holdout_cmd(
     factor, params = _make_factor(name, close, lookback, skip, window)
     factor = Pipeline([winsorize, zscore])(factor)
 
-    report = _backtest_report(
-        name, params, factor, close, quantiles, side, freq, cost_bps,
-        ledger_path, state_path, holdout_consumed=True,
+    report = run_backtest_report(
+        name, params, factor, close,
+        quantiles=quantiles, side=side, freq=freq, cost_bps=cost_bps,
+        ledger_path=ledger_path, holdout_consumed=True,
     )
     mark_consumed(name, state_path)
     typer.echo(report.to_markdown())

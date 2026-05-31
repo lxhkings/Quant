@@ -74,3 +74,26 @@ def test_rel_volume_requires_volume():
     close = pd.DataFrame({"AAA": [100.0] * 5}, index=idx)
     with pytest.raises(ValueError, match="volume"):
         RelativeVolume().compute(close, None)
+
+
+from quant.factor.library.amihud import Amihud
+
+
+def test_amihud_name():
+    assert Amihud().name == "amihud"
+
+
+def test_amihud_lower_for_higher_dollar_volume():
+    idx = pd.date_range("2020-01-01", periods=40, freq="D")
+    prices = [100.0 * (1 + (0.01 if i % 2 else -0.01)) ** i for i in range(40)]
+    close = pd.DataFrame({"AAA": prices, "BBB": prices}, index=idx)
+    vol = pd.DataFrame({"AAA": [1e6] * 40, "BBB": [1e7] * 40}, index=idx)
+    f = Amihud(window=21).compute(close, vol)
+    assert f["BBB"].iloc[-1] < f["AAA"].iloc[-1]
+
+
+def test_amihud_requires_volume():
+    idx = pd.date_range("2020-01-01", periods=5, freq="D")
+    close = pd.DataFrame({"AAA": [100.0] * 5}, index=idx)
+    with pytest.raises(ValueError, match="volume"):
+        Amihud().compute(close, None)

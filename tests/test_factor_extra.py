@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
+import pytest
 
+from quant.factor.library.amihud import Amihud
+from quant.factor.library.rel_volume import RelativeVolume
 from quant.factor.library.short_reversal import ShortReversal
 from quant.factor.library.volatility import Volatility
 
@@ -43,11 +46,6 @@ def test_volatility_positive_when_choppy():
     assert f["AAA"].iloc[-1] > 0
 
 
-import pytest
-
-from quant.factor.library.rel_volume import RelativeVolume
-
-
 def test_rel_volume_name():
     assert RelativeVolume().name == "rel_volume"
 
@@ -74,9 +72,6 @@ def test_rel_volume_requires_volume():
     close = pd.DataFrame({"AAA": [100.0] * 5}, index=idx)
     with pytest.raises(ValueError, match="volume"):
         RelativeVolume().compute(close, None)
-
-
-from quant.factor.library.amihud import Amihud
 
 
 def test_amihud_name():

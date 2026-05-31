@@ -5,6 +5,14 @@ import typer
 from scipy.stats import kurtosis, skew
 
 from quant.backtest.engine import backtest as run_backtest
+from quant.combine.synth import (
+    combine_score,
+    equal_weight,
+    factor_correlation,
+    high_correlation_warnings,
+    ic_weight,
+    zscore_factors,
+)
 from quant.backtest.metrics import compute_metrics, sharpe
 from quant.data.holdout import apply_holdout
 from quant.data.panel import load_price_matrix
@@ -164,3 +172,63 @@ def backtest_cmd(
         ledger_path, state_path, holdout_consumed=is_consumed(name, state_path),
     )
     typer.echo(report.to_markdown())
+
+
+@app.command("combine")
+def combine_cmd(
+    names: list[str] = typer.Argument(..., help="因子名列表：momentum ma_bias"),
+    weighting: str = typer.Option("equal", help="equal / ic"),
+    lookback: int = typer.Option(252, help="动量回看窗口"),
+    skip: int = typer.Option(21, help="动量跳过窗口"),
+    window: int = typer.Option(200, help="均线窗口（ma_bias）"),
+    horizon: int = typer.Option(21, help="IC 加权用的前瞻收益天数"),
+    quantiles: int = typer.Option(5, help="分位档数"),
+    side: str = typer.Option("long", help="long / long_short"),
+    freq: str = typer.Option("M", help="调仓频率 M/W"),
+    cost_bps: float = typer.Option(10.0, help="单边成本 bps"),
+    mode: str = typer.Option("research", help="research / holdout / full"),
+    holdout_years: int = typer.Option(2, help="holdout 锁定年数"),
+) -> None:
+    for nm in names:
+        if nm not in _FACTORS:
+            typer.echo(f"未知因子：{nm}，可选 {list(_FACTORS)}", err=True)
+            raise typer.Exit(code=1)
+
+    close = load_price_matrix(field="close", market="us")
+    close = apply_holdout(close, mode=mode, holdout_years=holdout_years)
+
+    raw = {nm: _make_factor(nm, close, lookback, skip, window)[0] for nm in names}
+    zf = zscore_factors(raw)
+
+    if weighting == "ic":
+        fwd = forward_returns(close, horizon=horizon)
+        ic_means = {
+            nm: ic_summary(ic_series(f, fwd, method="spearman"))["ic_mean"]
+            for nm, f in zf.items()
+        }
+        weights = ic_weight(ic_means)
+    else:
+        weights = equal_weight(names)
+
+    score = combine_score(zf, weights)
+    corr = factor_correlation(zf)
+    warns = high_correlation_warnings(corr, threshold=0.7)
+
+    res = run_backtest(score, close, n=quantiles, side=side, freq=freq, cost_bps=cost_bps)
+    metrics = compute_metrics(res.nav, res.returns)
+
+    lines = ["# 合成回测", "", "## 权重"]
+    lines += [f"- {nm}：{w:.3f}" for nm, w in weights.items()]
+    lines += ["", "## 共线性预警"]
+    if warns:
+        lines += [f"- {a} ~ {b}：相关 {v:.2f}" for a, b, v in warns]
+    else:
+        lines += ["- 无（阈值 0.7）"]
+    lines += [
+        "", "## 绩效",
+        f"- 年化收益：{metrics.annual_return:.2%}",
+        f"- Sharpe：{metrics.sharpe:.2f}",
+        f"- 最大回撤：{metrics.max_drawdown:.2%}",
+        f"- 月胜率：{metrics.monthly_win_rate:.2%}",
+    ]
+    typer.echo("\n".join(lines))

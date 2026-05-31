@@ -38,7 +38,7 @@ def step_header(step_no: int, title: str, what: str,
                 next: tuple[str, str] | None) -> None:
     """渲染步骤页统一头部：第 N 步 / 5 + 上下步链接 + 这步干啥。
 
-    prev/next 为 (page_path, label) 或 None。page_path 相对 app.py。
+    prev/next 为 (page_path, label) 或 None。page_path 相对当前页面所在目录。
     """
     st.caption(f"第 {step_no} 步 / 5 · {title}")
     c1, c2 = st.columns(2)

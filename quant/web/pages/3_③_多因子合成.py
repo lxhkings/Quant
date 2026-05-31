@@ -11,8 +11,8 @@ st.set_page_config(page_title="③ 多因子合成", layout="wide")
 step_header(
     3, "多因子合成",
     "把几个因子加权合成一个综合分，查因子间共线性，再回测组合表现。",
-    prev=("2_②_因子工坊.py", "② 因子工坊"),
-    next=("4_④_holdout闸门.py", "④ holdout 闸门"),
+    prev=("pages/2_②_因子工坊.py", "② 因子工坊"),
+    next=("pages/4_④_holdout闸门.py", "④ holdout 闸门"),
 )
 mode = mode_selector()
 

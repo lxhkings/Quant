@@ -12,8 +12,8 @@ st.set_page_config(page_title="⑤ 选股器", layout="wide")
 step_header(
     5, "选股器",
     "用多因子加权对最新截面打分，产出今日买入池。跑完可去 📒台账 回溯。",
-    prev=("4_④_holdout闸门.py", "④ holdout 闸门"),
-    next=("6_📒_台账.py", "📒 台账"),
+    prev=("pages/4_④_holdout闸门.py", "④ holdout 闸门"),
+    next=("pages/6_📒_台账.py", "📒 台账"),
 )
 mode = mode_selector()
 

@@ -10,8 +10,8 @@ st.set_page_config(page_title="④ holdout 闸门", layout="wide")
 step_header(
     4, "holdout 闸门",
     "对定稿因子在留出的 holdout 数据上做最终验证。这是不可逆操作。",
-    prev=("3_③_多因子合成.py", "③ 多因子合成"),
-    next=("5_⑤_选股器.py", "⑤ 选股器"),
+    prev=("pages/3_③_多因子合成.py", "③ 多因子合成"),
+    next=("pages/5_⑤_选股器.py", "⑤ 选股器"),
 )
 mode_selector()  # 渲染以保持各页一致；holdout 固定用 holdout 数据，mode 不参与
 

@@ -5,12 +5,13 @@
 
 from pathlib import Path
 
+import altair as alt
 import streamlit as st
 
 from quant.web import viewmodel
 
 st.set_page_config(page_title="Quant 因子研究", layout="wide")
-PAGES = ["因子工坊", "多因子合成", "holdout 闸门", "历史"]
+PAGES = ["因子工坊", "多因子合成", "holdout 闸门", "历史", "选股器"]
 page = st.sidebar.radio("页面", PAGES)
 mode = st.sidebar.selectbox("数据模式", ["research", "full"], index=0)
 
@@ -59,6 +60,35 @@ elif page == "holdout 闸门":
             st.success("holdout 已消耗，因子已锁定。")
         except RuntimeError as e:
             st.error(str(e))
+
+elif page == "选股器":
+    st.header("多因子量化选股器")
+    names = st.multiselect("因子", viewmodel.available_factors(), default=["momentum"])
+    weights = {}
+    if names:
+        cols = st.columns(len(names))
+        for i, nm in enumerate(names):
+            weights[nm] = cols[i].slider(f"{nm} 权重", 0, 100, 100 // len(names))
+        st.caption(f"总权重 {sum(weights.values())}（提交时自动归一为 100%）")
+    top_n = st.number_input("买入池数量 top-N", 1, 100, 3)
+    neutralize = st.checkbox("行业中性化")
+    if st.button("选股") and names and sum(weights.values()) > 0:
+        out = viewmodel.selector(names, weights, top_n=int(top_n),
+                                 neutralize=neutralize, mode=mode)
+        st.caption(f"截面日期：{out['as_of']}　归一权重：{out['weights']}")
+        t = out["table"]
+        chart = alt.Chart(t).mark_bar().encode(
+            x=alt.X("score:Q", title="综合得分 (0-100)"),
+            y=alt.Y("instrument_id:N", sort="-x", title=None),
+            color=alt.Color(
+                "zone:N",
+                scale=alt.Scale(domain=["buy", "candidate"], range=["#2e8b2e", "#3b6fe0"]),
+                legend=alt.Legend(title="池"),
+            ),
+            tooltip=["instrument_id", "score", "rank", "sector", "zone"],
+        )
+        st.altair_chart(chart, use_container_width=True)
+        st.dataframe(t)
 
 else:  # 历史
     st.header("历史试验台账")

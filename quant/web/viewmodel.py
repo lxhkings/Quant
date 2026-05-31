@@ -23,6 +23,7 @@ from quant.process.neutralize import sector_neutralize
 from quant.process.pipeline import Pipeline, winsorize, zscore
 from quant.report.runner import run_backtest_report
 from quant.report.scorecard import FactorReport
+from quant.select.screen import screen
 from quant.validate.gate import assert_not_consumed, mark_consumed
 from quant.validate.ledger import Ledger
 
@@ -143,3 +144,16 @@ def holdout_run(
 def history(ledger_path: Path) -> list[dict]:
     """历史：列过往试验台账记录。"""
     return Ledger(ledger_path).entries()
+
+
+def selector(
+    names: list[str], weights: dict[str, float], top_n: int = 10,
+    lookback: int = 252, skip: int = 21, window: int = 200,
+    neutralize: bool = False, mode: str = "full", holdout_years: int = 2,
+) -> dict:
+    """选股器：最新截面多因子打分选股，返回截面日期、归一权重、选股表。"""
+    res = screen(
+        names, weights, top_n=top_n, lookback=lookback, skip=skip,
+        window=window, neutralize=neutralize, mode=mode, holdout_years=holdout_years,
+    )
+    return {"as_of": str(res.as_of.date()), "weights": res.weights, "table": res.table}

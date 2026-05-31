@@ -13,5 +13,10 @@ quant_out/
 *.parquet
 data_lake/
 
+# tooling / local
+.codegraph/
+CLAUDE.md
+docs/superpowers/
+
 # macOS
 .DS_Store

@@ -21,6 +21,17 @@ class FactorReport:
     avg_turnover: float
     holdout_consumed: bool
 
+    def _plain_verdict(self) -> str:
+        greens = sum([self.ic_ir >= 0.5, self.monotonic, self.long_short_annual > 0])
+        if greens == 3:
+            head = "三关全过：预测力稳、分位单调、多空为正，**可进入候选池**。"
+        elif greens == 0:
+            head = "三关全不过：预测力弱、分位不单调或多空为负，**不建议使用**。"
+        else:
+            head = f"三关过 {greens}/3，**信号偏弱，需谨慎**。"
+        cost = "换手偏高，留意交易成本。" if self.avg_turnover > 0.20 else ""
+        return head + cost
+
     def to_markdown(self) -> str:
         params = ", ".join(f"{k}={v}" for k, v in self.params.items())
         ic_ok = self.ic_ir >= 0.5
@@ -31,6 +42,12 @@ class FactorReport:
         return f"""# 因子体检报告：{self.factor_name}
 
 参数：{params}
+
+## 通俗结论
+
+{self._plain_verdict()}
+
+> 名词：IC-IR=因子预测力的稳定程度（越高越稳）；多空年化=买高分组、卖低分组的年化收益。
 
 ## 红绿灯结论
 

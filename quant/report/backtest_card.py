@@ -21,6 +21,18 @@ class BacktestReport:
     n_trials: int
     holdout_consumed: bool
 
+    def _plain_verdict(self) -> str:
+        greens = sum([
+            self.annual_return > 0,
+            self.sharpe >= 1.0,
+            self.deflated_sharpe >= 0.95,
+        ])
+        if greens == 3:
+            return "含成本仍赚钱、风险调整后稳健、抗过拟合达标，**可考虑实盘候选**。"
+        if greens == 0:
+            return "含成本不赚钱、风险调整差、抗过拟合不达标，**不建议使用**。"
+        return f"三关过 {greens}/3，**证据不足，需继续验证**。"
+
     def to_markdown(self) -> str:
         params = ", ".join(f"{k}={v}" for k, v in self.params.items())
         ret_ok = self.annual_return > 0
@@ -29,6 +41,12 @@ class BacktestReport:
         return f"""# 回测体检报告：{self.factor_name}
 
 参数：{params}
+
+## 通俗结论
+
+{self._plain_verdict()}
+
+> 名词：Sharpe=每承担一单位风险换来的收益；DSR=剔除多重检验运气后的真实 Sharpe（≥0.95 才算可信）。
 
 ## 红绿灯结论
 

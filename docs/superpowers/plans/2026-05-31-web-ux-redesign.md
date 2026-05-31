@@ -132,7 +132,7 @@ def step_header(step_no: int, title: str, what: str,
                 next: tuple[str, str] | None) -> None:
     """渲染步骤页统一头部：第 N 步 / 5 + 上下步链接 + 这步干啥。
 
-    prev/next 为 (page_path, label) 或 None。page_path 相对 app.py。
+    prev/next 为 (page_path, label) 或 None。page_path 相对入口文件目录（quant/web/）。
     """
     st.caption(f"第 {step_no} 步 / 5 · {title}")
     c1, c2 = st.columns(2)
@@ -267,7 +267,7 @@ st.set_page_config(page_title="① 因子扫描", layout="wide")
 step_header(
     1, "因子扫描",
     "一键体检全库因子，按 ICIR 排序，先看哪些有预测力、值得深挖。",
-    prev=None, next=("2_②_因子工坊.py", "② 因子工坊"),
+    prev=None, next=("pages/2_②_因子工坊.py", "② 因子工坊"),
 )
 from quant.web._shared import mode_selector
 mode = mode_selector()
@@ -320,8 +320,8 @@ step_header(
     2, "因子工坊",
     "对单个因子做 IC + 分位 + 多空体检，看它有没有预测力。"
     "跑完看报告卡顶部红绿灯三关是否通过。",
-    prev=("1_①_因子扫描.py", "① 因子扫描"),
-    next=("3_③_多因子合成.py", "③ 多因子合成"),
+    prev=("pages/1_①_因子扫描.py", "① 因子扫描"),
+    next=("pages/3_③_多因子合成.py", "③ 多因子合成"),
 )
 mode = mode_selector()
 
@@ -394,8 +394,8 @@ st.set_page_config(page_title="③ 多因子合成", layout="wide")
 step_header(
     3, "多因子合成",
     "把几个因子加权合成一个综合分，查因子间共线性，再回测组合表现。",
-    prev=("2_②_因子工坊.py", "② 因子工坊"),
-    next=("4_④_holdout闸门.py", "④ holdout 闸门"),
+    prev=("pages/2_②_因子工坊.py", "② 因子工坊"),
+    next=("pages/4_④_holdout闸门.py", "④ holdout 闸门"),
 )
 mode = mode_selector()
 
@@ -473,8 +473,8 @@ st.set_page_config(page_title="④ holdout 闸门", layout="wide")
 step_header(
     4, "holdout 闸门",
     "对定稿因子在留出的 holdout 数据上做最终验证。这是不可逆操作。",
-    prev=("3_③_多因子合成.py", "③ 多因子合成"),
-    next=("5_⑤_选股器.py", "⑤ 选股器"),
+    prev=("pages/3_③_多因子合成.py", "③ 多因子合成"),
+    next=("pages/5_⑤_选股器.py", "⑤ 选股器"),
 )
 mode_selector()  # 渲染以保持各页一致；holdout 固定用 holdout 数据，mode 不参与
 
@@ -534,8 +534,8 @@ st.set_page_config(page_title="⑤ 选股器", layout="wide")
 step_header(
     5, "选股器",
     "用多因子加权对最新截面打分，产出今日买入池。跑完可去 📒台账 回溯。",
-    prev=("4_④_holdout闸门.py", "④ holdout 闸门"),
-    next=("6_📒_台账.py", "📒 台账"),
+    prev=("pages/4_④_holdout闸门.py", "④ holdout 闸门"),
+    next=("pages/6_📒_台账.py", "📒 台账"),
 )
 mode = mode_selector()
 
@@ -686,4 +686,4 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **2. 占位扫描**：无 TBD/TODO；每个代码步骤含完整可运行代码。
 
-**3. 类型一致**：`step_header(step_no, title, what, prev, next)`、`mode_selector()`、`GLOSSARY` 在 Task 1 定义，Task 2-8 引用签名一致。page_link 路径字符串与各页文件名逐字对应（`1_①_因子扫描.py` 等）。`viewmodel.combine` 返回的 `metrics` 键名（annual_return/sharpe/max_drawdown/monthly_win_rate）与 Task 5 使用一致。`selector` 返回 table 的 `zone` 列与 Task 7 `(t["zone"]=="buy")` 一致。
+**3. 类型一致**：`step_header(step_no, title, what, prev, next)`、`mode_selector()`、`GLOSSARY` 在 Task 1 定义，Task 2-8 引用签名一致。page_link 路径字符串与各页文件名逐字对应（`pages/1_①_因子扫描.py` 等，相对于入口文件目录 quant/web/）。`viewmodel.combine` 返回的 `metrics` 键名（annual_return/sharpe/max_drawdown/monthly_win_rate）与 Task 5 使用一致。`selector` 返回 table 的 `zone` 列与 Task 7 `(t["zone"]=="buy")` 一致。
